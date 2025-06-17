@@ -1,0 +1,52 @@
+name: SonarCloud Analysis
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  sonarcloud:
+    name: SonarCloud Analysis
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Shallow clones should be disabled for better analysis
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pytest pytest-cov
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+    
+    - name: Run tests with coverage
+      run: |
+        python -m pytest --cov=. --cov-report=xml --cov-report=term-missing || true
+    
+    - name: SonarCloud Scan
+      uses: SonarSource/sonarcloud-github-action@master
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Needed to get PR information, if any
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}    # Generate a token on SonarCloud.io
+      with:
+        # Additional arguments to the sonarcloud scanner
+        args: >
+          -Dsonar.projectKey=arkb75_solopilot-demo-client
+          -Dsonar.organization=arkb75
+          -Dsonar.projectName="SoloPilot Demo Client - Real-time Linting Validation" 
+          -Dsonar.projectVersion=1.0
+          -Dsonar.sources=.
+          -Dsonar.inclusions=**/*.py
+          -Dsonar.exclusions=**/test*.py,**/*test.py,**/__pycache__/**,**/.*/**
+          -Dsonar.tests=.
+          -Dsonar.test.inclusions=**/test*.py,**/*test.py
+          -Dsonar.python.coverage.reportPaths=coverage.xml
